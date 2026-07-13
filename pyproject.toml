@@ -19,6 +19,7 @@ okd-api = "open_knowledge_document.server:main"
 [project.optional-dependencies]
 validation = ["jsonschema>=4.23"]
 workbench = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1", "httpx>=0.28,<1"]
+test = ["pytest>=8,<10"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/open_knowledge_document"]
