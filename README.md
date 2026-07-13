@@ -127,6 +127,13 @@ Images and files are registered with `download_status=pending`. Their binary
 download worker and object-storage adapter are intentionally a separate next
 stage; enable `drive:drive:readonly` when that worker is added.
 
+Import exclusions are managed in **系统设置 → 同步黑名单**. Rules are matched
+case-insensitively against document IDs, node tokens, titles, paths, source
+URLs and space IDs. Plain text performs substring matching, `*` and `?` use
+glob matching, and rules prefixed with `re:` are regular expressions. Excluded
+nodes are marked in the browser and skipped by both individual and whole-space
+imports.
+
 ### Docker
 
 Build and run the complete Workbench and API on one port:

@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from open_knowledge_document.converters.feishu import convert_feishu_blocks
+from open_knowledge_document.exclusions import ExclusionConfig, ExclusionMatcher, ExclusionStore
 from open_knowledge_document.feishu_client import FeishuAPIError, FeishuAppConfig, FeishuConfigStore, FeishuOpenAPIClient
 from open_knowledge_document.storage import Database, utc_now
 
@@ -66,6 +67,14 @@ def schema_path() -> Path:
 
 def feishu_store() -> FeishuConfigStore:
     return FeishuConfigStore(data_dir() / "feishu-config.json")
+
+
+def exclusion_store() -> ExclusionStore:
+    return ExclusionStore(data_dir() / "import-exclusions.json")
+
+
+def exclusion_for(*, document_id: str = "", node_token: str = "", title: str = "", path: list[str] | None = None, source_url: str = "", space_id: str = ""):
+    return ExclusionMatcher(exclusion_store().load()).match({"doc_id": document_id, "document_id": document_id, "node_token": node_token, "title": title, "path": path or [], "source_url": source_url, "space_id": space_id, "source_type": "feishu"})
 
 
 def get_database() -> Iterator[Database]:
@@ -219,6 +228,18 @@ def check_feishu() -> dict[str, Any]:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
+@app.get("/api/admin/exclusions", dependencies=[Depends(require_admin)])
+def get_exclusions() -> dict[str, Any]:
+    return exclusion_store().public()
+
+
+@app.put("/api/admin/exclusions", dependencies=[Depends(require_admin)])
+def save_exclusions(config: ExclusionConfig, database: Database = Depends(get_database)) -> dict[str, Any]:
+    saved = exclusion_store().save(config)
+    database.add_audit("exclusions.updated", target_id="feishu_import", detail={"enabled": saved.enabled, "patterns": saved.patterns})
+    return exclusion_store().public()
+
+
 @app.get("/api/admin/feishu/spaces", dependencies=[Depends(require_admin)])
 def feishu_spaces() -> list[dict[str, Any]]:
     try:
@@ -234,14 +255,26 @@ def feishu_nodes(space_id: str, parent_node_token: str = "", recursive: bool = F
         with FeishuOpenAPIClient(feishu_store().load()) as client:
             if recursive:
                 entries = list(client.iter_nodes(space_id, parent_node_token))[:limit]
-                return [{**node, "path": path, "syncable": node.get("obj_type") == "docx" and bool(node.get("obj_token"))} for node, path in entries]
-            return [{**node, "path": [str(node.get("title") or "")], "syncable": node.get("obj_type") == "docx" and bool(node.get("obj_token"))} for node in client.list_nodes(space_id, parent_node_token)[:limit]]
+                result = []
+                for node, path in entries:
+                    match = exclusion_for(document_id=str(node.get("obj_token") or ""), node_token=str(node.get("node_token") or ""), title=str(node.get("title") or ""), path=path, space_id=space_id)
+                    result.append({**node, "path": path, "excluded": bool(match), "exclusion": match.__dict__ if match else None, "syncable": node.get("obj_type") == "docx" and bool(node.get("obj_token")) and not match})
+                return result
+            result = []
+            for node in client.list_nodes(space_id, parent_node_token)[:limit]:
+                path = [str(node.get("title") or "")]
+                match = exclusion_for(document_id=str(node.get("obj_token") or ""), node_token=str(node.get("node_token") or ""), title=str(node.get("title") or ""), path=path, space_id=space_id)
+                result.append({**node, "path": path, "excluded": bool(match), "exclusion": match.__dict__ if match else None, "syncable": node.get("obj_type") == "docx" and bool(node.get("obj_token")) and not match})
+            return result
     except FeishuAPIError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.post("/api/admin/feishu/import", dependencies=[Depends(require_admin)])
 def import_from_feishu_bot(request: FeishuBotImportRequest, database: Database = Depends(get_database)) -> dict[str, Any]:
+    match = exclusion_for(document_id=request.document_id, node_token=request.node_token, title=request.title, path=request.path, source_url=request.source_url, space_id=request.space_id)
+    if match:
+        raise HTTPException(status_code=409, detail=f"文档命中黑名单：{match.pattern}（字段 {match.field}）")
     try:
         with FeishuOpenAPIClient(feishu_store().load()) as client:
             blocks = client.list_document_blocks(request.document_id)
@@ -259,6 +292,7 @@ def import_from_feishu_bot(request: FeishuBotImportRequest, database: Database =
 def sync_feishu_space(request: FeishuSpaceSyncRequest, database: Database = Depends(get_database)) -> dict[str, Any]:
     imported: list[dict[str, Any]] = []
     skipped = 0
+    excluded = 0
     failed: list[dict[str, str]] = []
     try:
         with FeishuOpenAPIClient(feishu_store().load()) as client:
@@ -266,20 +300,24 @@ def sync_feishu_space(request: FeishuSpaceSyncRequest, database: Database = Depe
             for node, path in entries:
                 if len(imported) + len(failed) >= request.limit:
                     break
+                source_url = f"{request.source_url_base.rstrip('/')}/wiki/{node.get('node_token')}" if request.source_url_base else ""
+                match = exclusion_for(document_id=str(node.get("obj_token") or ""), node_token=str(node.get("node_token") or ""), title=str(node.get("title") or ""), path=path, source_url=source_url, space_id=request.space_id)
+                if match:
+                    excluded += 1
+                    continue
                 if node.get("obj_type") != "docx" or not node.get("obj_token"):
                     skipped += 1
                     continue
                 document_id = str(node["obj_token"])
                 try:
                     blocks = client.list_document_blocks(document_id)
-                    source_url = f"{request.source_url_base.rstrip('/')}/wiki/{node.get('node_token')}" if request.source_url_base else ""
                     conversion = FeishuConversionRequest(payload={"code": 0, "data": {"items": blocks}}, document_id=document_id, revision=str(node.get("obj_edit_time") or node.get("updated_at") or "latest"), title=str(node.get("title") or ""), space_id=request.space_id, path=path, source_url=source_url, permissions=request.permissions)
                     imported.append(persist_feishu_request(conversion, database, kind="feishu_space_sync"))
                 except (FeishuAPIError, HTTPException) as exc:
                     failed.append({"document_id": document_id, "error": str(getattr(exc, "detail", exc))})
     except FeishuAPIError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return {"ok": not failed, "space_id": request.space_id, "imported": len(imported), "skipped": skipped, "failed": failed, "documents": [item["document"] for item in imported]}
+    return {"ok": not failed, "space_id": request.space_id, "imported": len(imported), "skipped": skipped, "excluded": excluded, "failed": failed, "documents": [item["document"] for item in imported]}
 
 
 @app.get("/api/admin/documents", dependencies=[Depends(require_admin)])

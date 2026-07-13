@@ -42,6 +42,15 @@ def test_admin_import_lifecycle(tmp_path: Path, monkeypatch) -> None:
         assert client.get("/api/admin/session").status_code == 401
         assert client.get("/api/admin/session", headers=headers).json()["authenticated"] is True
 
+        exclusions = client.put(
+            "/api/admin/exclusions",
+            headers=headers,
+            json={"enabled": True, "patterns": ["Archive", "re:^secret"]},
+        )
+        assert exclusions.status_code == 200
+        assert exclusions.json()["patterns"] == ["Archive", "re:^secret"]
+        assert "title" in exclusions.json()["fields"]
+
         response = client.post("/api/admin/import/feishu", headers=headers, json=request)
         assert response.status_code == 200, response.text
         imported = response.json()
