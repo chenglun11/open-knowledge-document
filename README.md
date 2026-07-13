@@ -8,8 +8,8 @@ downstream systems such as BookStack, Docmost, search engines, or AI agents.
 It keeps source snapshots and assets recoverable while exposing a normalized,
 versioned document representation.
 
-> Status: early design draft. The schema is not stable and must be validated
-> against a representative real-world document corpus before v1.0.
+> Status: v0.2 administration preview. The schema is not stable and must be
+> validated against a representative real-world document corpus before v1.0.
 
 ## Design goals
 
@@ -82,11 +82,13 @@ python -m pip install -e ".[validation]"
 python -m unittest discover -s tests -v
 ```
 
-## Conversion Workbench
+## Administration panel
 
-The repository includes a three-pane research UI for studying the source
-payload, normalized OKD tree, provenance, assets, conversion warnings, and the
-future BookStack handoff contract.
+The repository includes a Vue 3 administration panel based on the
+vue-pure-admin technology stack (Vite, TypeScript and Element Plus). It
+provides administrator authentication, Feishu bot configuration, wiki space
+browsing, document and whole-space imports, document inventory, jobs, assets,
+schema inspection, audit logs and runtime settings.
 
 Start the local conversion API:
 
@@ -103,8 +105,27 @@ npm install
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`. The included synthetic specimen can be converted
-immediately; no Feishu credentials or private documents are required.
+Open `http://127.0.0.1:5173`. Raw block JSON remains available under the
+advanced debug switch, but the normal import path uses a Feishu/Lark bot.
+
+### Feishu bot setup
+
+Create a custom Feishu app and enable bot access. Grant it read access to the
+Wiki and Docx APIs, including `wiki:space:read` (or the broader Wiki read
+permission) and `docx:document:readonly`. The app must also be added as a
+member or administrator of each knowledge space it should read; API scopes
+alone do not grant access to document resources.
+
+In **飞书导入**, enter the App ID and App Secret, save them, and run the
+connection check. Secrets are stored only in `/data/feishu-config.json` with
+mode `0600` and are never returned to the browser. The panel then lists spaces
+and their recursive node trees. Importing a document fetches all pages from
+`/docx/v1/documents/{document_id}/blocks`, saves the source snapshot, validates
+the OKD result, and commits it to SQLite.
+
+Images and files are registered with `download_status=pending`. Their binary
+download worker and object-storage adapter are intentionally a separate next
+stage; enable `drive:drive:readonly` when that worker is added.
 
 ### Docker
 
@@ -114,9 +135,12 @@ Build and run the complete Workbench and API on one port:
 docker compose up --build -d
 ```
 
-Then open `http://127.0.0.1:8080`. Override the host port with
-`OKD_PORT=8090`. The runtime container is stateless, runs as a non-root user,
-and serves both the compiled frontend and `/api/*` endpoints.
+Then open `http://127.0.0.1:8080` and log in with the value of
+`OKD_ADMIN_TOKEN` (the local Compose default is `change-me-local`). Override
+the host port with `OKD_PORT=8090`. The runtime container runs as a non-root
+user and serves both the compiled frontend and `/api/*` endpoints. SQLite,
+source snapshots and the encrypted-at-rest responsibility of the host are
+persisted in the `okd-data` Docker volume.
 
 ## Current decision process
 

@@ -12,16 +12,20 @@ RUN npm run build
 FROM ${PYTHON_IMAGE} AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    OKD_WEB_DIST=/app/workbench
+    OKD_WEB_DIST=/app/admin \
+    OKD_DATA_DIR=/data \
+    OKD_SCHEMA_PATH=/app/schemas/open-knowledge-document-v0.1.schema.json
 WORKDIR /app
 
 COPY pyproject.toml README.md LICENSE ./
 COPY src/ ./src/
+COPY schemas/ ./schemas/
 RUN python -m pip install --no-cache-dir ".[workbench,validation]"
 
-COPY --from=web-build /build/web/dist/ /app/workbench/
+COPY --from=web-build /build/web/dist/ /app/admin/
 
 RUN useradd --create-home --uid 10001 okd
+RUN mkdir -p /data && chown -R okd:okd /data
 USER okd
 EXPOSE 8000
 
