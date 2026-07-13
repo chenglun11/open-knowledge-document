@@ -209,6 +209,13 @@ tempCodeRunnerFile.py
 # PyPI configuration file
 .pypirc
 
+# Frontend and browser QA
+node_modules/
+.playwright-cli/
+*.tsbuildinfo
+web/vite.config.js
+web/vite.config.d.ts
+
 # Marimo
 marimo/_static/
 marimo/_lsp/

@@ -82,6 +82,30 @@ python -m pip install -e ".[validation]"
 python -m unittest discover -s tests -v
 ```
 
+## Conversion Workbench
+
+The repository includes a three-pane research UI for studying the source
+payload, normalized OKD tree, provenance, assets, conversion warnings, and the
+future BookStack handoff contract.
+
+Start the local conversion API:
+
+```bash
+python -m pip install -e ".[validation,workbench]"
+okd-api
+```
+
+In a second terminal, start the frontend:
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+Open `http://127.0.0.1:5173`. The included synthetic specimen can be converted
+immediately; no Feishu credentials or private documents are required.
+
 ## Current decision process
 
 The normalized body model is intentionally not frozen yet. The initial model
