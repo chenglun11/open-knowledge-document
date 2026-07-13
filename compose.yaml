@@ -1,0 +1,14 @@
+services:
+  workbench:
+    image: open-knowledge-document:local
+    build:
+      context: .
+      args:
+        NODE_IMAGE: ${OKD_NODE_IMAGE:-node:24-alpine}
+        PYTHON_IMAGE: ${OKD_PYTHON_IMAGE:-python:3.12-slim}
+    ports:
+      - "127.0.0.1:${OKD_PORT:-8080}:8000"
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m
+    restart: unless-stopped

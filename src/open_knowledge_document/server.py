@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from open_knowledge_document.converters.feishu import convert_feishu_blocks
@@ -58,6 +61,21 @@ def convert_feishu(request: FeishuConversionRequest) -> dict[str, Any]:
         )
     except (TypeError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+def mount_workbench() -> None:
+    """Serve a production frontend when OKD_WEB_DIST points to a build."""
+
+    configured = os.getenv("OKD_WEB_DIST", "").strip()
+    if not configured:
+        return
+    web_dist = Path(configured).expanduser().resolve()
+    if not (web_dist / "index.html").is_file():
+        raise RuntimeError(f"OKD_WEB_DIST does not contain index.html: {web_dist}")
+    app.mount("/", StaticFiles(directory=web_dist, html=True), name="workbench")
+
+
+mount_workbench()
 
 
 def main() -> None:

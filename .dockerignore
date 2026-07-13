@@ -1,0 +1,10 @@
+.git
+.github
+.venv
+.playwright-cli
+__pycache__
+*.pyc
+*.egg-info
+web/node_modules
+web/dist
+output

@@ -106,6 +106,18 @@ npm run dev
 Open `http://127.0.0.1:5173`. The included synthetic specimen can be converted
 immediately; no Feishu credentials or private documents are required.
 
+### Docker
+
+Build and run the complete Workbench and API on one port:
+
+```bash
+docker compose up --build -d
+```
+
+Then open `http://127.0.0.1:8080`. Override the host port with
+`OKD_PORT=8090`. The runtime container is stateless, runs as a non-root user,
+and serves both the compiled frontend and `/api/*` endpoints.
+
 ## Current decision process
 
 The normalized body model is intentionally not frozen yet. The initial model
