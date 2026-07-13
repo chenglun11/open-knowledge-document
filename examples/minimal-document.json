@@ -1,0 +1,54 @@
+{
+  "schema_version": "0.1.0",
+  "id": "example:space-1:document-1",
+  "source": {
+    "type": "example",
+    "document_id": "document-1",
+    "space_id": "space-1",
+    "revision": "1",
+    "url": "https://example.invalid/documents/document-1"
+  },
+  "metadata": {
+    "title": "Synthetic architecture note",
+    "path": ["Examples", "Architecture"],
+    "status": "active",
+    "updated_at": "2026-07-13T00:00:00Z"
+  },
+  "permissions": {
+    "visibility": "restricted",
+    "allowed_users": [],
+    "allowed_groups": ["example-engineering"]
+  },
+  "document": {
+    "type": "doc",
+    "content": [
+      {
+        "id": "heading-1",
+        "type": "heading",
+        "attrs": { "level": 1 },
+        "content": [
+          { "type": "text", "text": "Architecture" }
+        ]
+      },
+      {
+        "id": "paragraph-1",
+        "type": "paragraph",
+        "content": [
+          { "type": "text", "text": "This is synthetic public example content." }
+        ]
+      }
+    ]
+  },
+  "assets": [],
+  "source_snapshot": {
+    "format": "example-blocks-v1",
+    "storage_ref": "snapshots/document-1/revision-1.json",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "conversion": {
+    "converter": "example-to-okd",
+    "converter_version": "0.1.0",
+    "converted_at": "2026-07-13T00:00:00Z",
+    "warnings": []
+  }
+}
