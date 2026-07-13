@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "open-knowledge-document"
+version = "0.1.0"
+description = "Open, vendor-neutral document model and conversion toolkit"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Open Knowledge Document contributors" }]
+dependencies = []
+
+[project.scripts]
+okd = "open_knowledge_document.cli:main"
+
+[project.optional-dependencies]
+validation = ["jsonschema>=4.23"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/open_knowledge_document"]

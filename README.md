@@ -47,6 +47,39 @@ Source API
 schemas/       Draft JSON Schemas
 examples/      Synthetic, non-sensitive examples
 docs/adr/      Architecture decisions and model evaluation
+src/           Reference converters and CLI
+tests/         Conversion fixtures and behavior tests
+```
+
+## Feishu/Lark conversion
+
+The first reference converter accepts a previously saved Docx block-list API
+response. It performs no network access: persist the raw response first, then
+convert it offline.
+
+```bash
+python -m open_knowledge_document.cli convert-feishu \
+  --input snapshots/document-1.json \
+  --output build/document-1.okd.json \
+  --document-id document-1 \
+  --revision 7 \
+  --space-id space-1 \
+  --title "Architecture proposal" \
+  --path Engineering \
+  --path Architecture
+```
+
+The converter currently handles paragraphs, headings, list items, code,
+quotes, callouts, dividers, tables, images, and files. Unknown blocks and
+inline elements are emitted as `unsupported` nodes with references back to the
+source snapshot. Image and file records are emitted with `download_status` set
+to `pending`; downloading and content hashing belong to the asset pipeline.
+
+Run the test suite with:
+
+```bash
+python -m pip install -e ".[validation]"
+python -m unittest discover -s tests -v
 ```
 
 ## Current decision process
